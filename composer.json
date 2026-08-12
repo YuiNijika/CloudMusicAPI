@@ -1,0 +1,22 @@
+{
+    "name": "yuinijika/anon",
+    "description": "Anon Framework Next - A PHP backend API framework",
+    "type": "library",
+    "license": "MIT",
+    "minimum-stability": "alpha",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Anon\\": "app/"
+        }
+    },
+    "require": {
+        "yuinijika/anon-core": "*"
+    },
+    "authors": [
+        {
+            "name": "鼠子(YuiNijika)",
+            "email": "Tomori@miomoe.cn"
+        }
+    ]
+}
