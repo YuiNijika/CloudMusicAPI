@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Anon\Service;
 
 use Anon\Core\Facade\Config;
-use Anon\Core\Http\Client as HttpClient;
 use Anon\Service\Netease\Crypto;
 
 /**
@@ -181,22 +180,53 @@ class NeteaseApiClient
      */
     private function post(string $url, string $payload, array $headers): array
     {
-        $client = new HttpClient();
-        $client->sslVerify((bool) Config::get('http.ssl_verify', true));
+        $curl = curl_init($url);
+        $curlHeaders = [];
+        foreach ($headers as $name => $value) {
+            $curlHeaders[] = "{$name}: {$value}";
+        }
 
-        $raw = $client->post($url, $payload, $headers);
-        $body = is_array($raw['json'] ?? null) ? $raw['json'] : [];
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $curlHeaders);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_HEADER, true);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 15);
+        curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 10);
+        if (!(bool) Config::get('http.ssl_verify', true)) {
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+        }
+
+        $raw = curl_exec($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $headerSize = (int) curl_getinfo($curl, CURLINFO_HEADER_SIZE);
+        curl_close($curl);
+
+        if ($raw === false) {
+            return ['status' => 502, 'body' => [], 'cookies' => []];
+        }
+
+        $headerStr = substr($raw, 0, $headerSize);
+        $bodyStr = substr($raw, $headerSize);
+
+        // 自己解析响应头：curl 不合并同名头，多条 Set-Cookie 全保留
         $cookies = [];
-        foreach (($raw['headers'] ?? []) as $name => $values) {
-            if (strtolower((string) $name) === 'set-cookie') {
-                foreach ((array) $values as $value) {
-                    $cookies[] = preg_replace('/\s*Domain=[^;]*;?/', '', (string) $value) ?? '';
-                }
+        foreach (explode("\r\n", $headerStr) as $line) {
+            if (stripos($line, 'Set-Cookie:') !== 0) {
+                continue;
             }
+            $value = trim(substr($line, strlen('Set-Cookie:')));
+            $cookies[] = preg_replace('/\s*Domain=[^;]*;?/', '', $value) ?? '';
+        }
+
+        $body = json_decode($bodyStr, true);
+        if (!is_array($body)) {
+            $body = [];
         }
 
         return [
-            'status' => (int) ($raw['status'] ?? 502),
+            'status' => $status === 0 ? 502 : $status,
             'body' => $body,
             'cookies' => $cookies,
         ];
