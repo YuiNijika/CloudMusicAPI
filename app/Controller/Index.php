@@ -33,7 +33,7 @@ class Index
             ->withHeader('Content-Type', 'text/html; charset=utf-8');
     }
 
-    /** OpenAPI 3.0 规范：35 个接口的路径与参数（供 SwaggerUI / 客户端生成） */
+    /** OpenAPI 3.0 规范：71 个接口的路径与参数（供 SwaggerUI / 客户端生成） */
     public function openapiJson(): Response
     {
         return Response::json($this->openapiSpec(), 200);
@@ -111,7 +111,7 @@ class Index
         </header>
 
         <main class="pb-20 pt-8 sm:pt-12">
-            <div class="mb-4 font-mono text-[0.74rem] uppercase tracking-[0.22em] text-accent">Base URL: {host}/api · 35 endpoints</div>
+            <div class="mb-4 font-mono text-[0.74rem] uppercase tracking-[0.22em] text-accent">Base URL: {host}/api · 71 endpoints</div>
             <h1 class="max-w-4xl font-display text-5xl font-semibold leading-none tracking-[-0.08em] text-white sm:text-6xl lg:text-7xl">
                 网易云音乐 API
             </h1>
@@ -278,7 +278,7 @@ HTML;
 HTML;
     }
 
-    /** 35 个接口的 OpenAPI 3.0 描述；参数与 NeteaseApiClient::buildData 对齐 */
+    /** 71 个接口的 OpenAPI 3.0 描述；参数与 NeteaseApiClient::buildData 对齐 */
     private function openapiSpec(): array
     {
         $int = static fn (string $name, string $desc, int $default = 0): array => [
@@ -344,6 +344,42 @@ HTML;
                 '/dj/sub' => $get('订阅/取消订阅电台', [$str('rid', '电台 id', ''), $int('t', '1=订阅 0=取消', 0)]),
                 '/mv/url' => $get('MV 播放地址', [$str('id', 'MV id', ''), $int('r', '清晰度', 1080)]),
                 '/mv/detail' => $get('MV 详情', [$str('id', 'MV id', '')]),
+                '/song/like/check' => $get('歌曲是否喜欢', [$str('ids', '歌曲 id 逗号分隔', '')]),
+                '/lyric/new' => $get('新版歌词（含逐字）', [$str('id', '歌曲 id', '')]),
+                '/banner' => $get('首页轮播图', [$int('type', '0=pc 1=android 2=iphone 3=ipad', 0)]),
+                '/personalized/newsong' => $get('推荐新歌', [$int('limit', '数量', 10), $int('areaId', '地区 id', 0)]),
+                '/personalized/djprogram' => $get('推荐电台节目'),
+                '/personalized/mv' => $get('推荐 MV'),
+                '/toplist' => $get('所有榜单介绍'),
+                '/toplist/detail' => $get('所有榜单内容摘要'),
+                '/top/song' => $get('新歌速递', [$int('type', '0=全部 7=华语 96=欧美 8=日本 16=韩国', 0)]),
+                '/top/album' => $get('新碟上架', [$str('area', 'ALL/ZH/EA/KR/JP', 'ALL'), $int('limit', '数量', 50), $int('offset', '偏移', 0), $str('type', 'new/hot', 'new'), $int('year', '年份', 0), $int('month', '月份', 0)]),
+                '/top/artists' => $get('热门歌手', [$int('limit', '数量', 50), $int('offset', '偏移', 0)]),
+                '/top/mv' => $get('MV 排行', [$str('area', '地区', ''), $int('limit', '数量', 30), $int('offset', '偏移', 0)]),
+                '/top/playlist' => $get('分类歌单', [$str('cat', '分类，默认全部', '全部'), $str('order', 'hot/new', 'hot'), $int('limit', '数量', 50), $int('offset', '偏移', 0)]),
+                '/search/hot' => $get('热门搜索'),
+                '/search/suggest' => $get('搜索建议', [$str('keywords', '关键词', '')]),
+                '/simi/song' => $get('相似歌曲', [$str('id', '歌曲 id', ''), $int('limit', '数量', 50), $int('offset', '偏移', 0)]),
+                '/simi/playlist' => $get('相似歌单', [$str('id', '歌曲 id', ''), $int('limit', '数量', 50), $int('offset', '偏移', 0)]),
+                '/simi/mv' => $get('相似 MV', [$str('mvid', 'MV id', '')]),
+                '/related/allvideo' => $get('相关视频', [$str('id', '视频 id', '')]),
+                '/artist/songs' => $get('歌手歌曲', [$str('id', '歌手 id', ''), $str('order', 'hot/time', 'hot'), $int('limit', '数量', 100), $int('offset', '偏移', 0)]),
+                '/artist/top/song' => $get('歌手热门 50 首', [$str('id', '歌手 id', '')]),
+                '/artist/sublist' => $get('关注歌手列表', [$int('limit', '数量', 25), $int('offset', '偏移', 0)]),
+                '/artist/sub' => $get('收藏/取消收藏歌手', [$str('id', '歌手 id', ''), $int('t', '1=收藏 0=取消', 0)]),
+                '/mv/all' => $get('全部 MV', [$str('area', '地区', '全部'), $str('type', '类型', '全部'), $str('order', '排序', '上升最快'), $int('limit', '数量', 30), $int('offset', '偏移', 0)]),
+                '/mv/first' => $get('最新 MV', [$str('area', '地区', ''), $int('limit', '数量', 30)]),
+                '/mv/sublist' => $get('收藏的 MV', [$int('limit', '数量', 25), $int('offset', '偏移', 0)]),
+                '/mv/sub' => $get('收藏/取消收藏 MV', [$str('mvid', 'MV id', ''), $int('t', '1=收藏 0=取消', 0)]),
+                '/personal_fm' => $get('私人 FM'),
+                '/playlist/create' => $get('创建歌单', [$str('name', '歌单名', ''), $str('privacy', '0=公开 10=隐私', '0'), $str('type', 'NORMAL/VIDEO/SHARED', 'NORMAL')]),
+                '/playlist/delete' => $get('删除歌单', [$str('id', '歌单 id', '')]),
+                '/login/status' => $get('登录状态'),
+                '/logout' => $get('退出登录'),
+                '/user/detail' => $get('用户详情', [$str('uid', '用户 id', '')]),
+                '/user/subcount' => $get('收藏计数'),
+                '/user/level' => $get('用户等级'),
+                '/user/record' => $get('听歌排行', [$str('uid', '用户 id', ''), $int('type', '0=所有时间 1=最近一周', 0)]),
             ],
         ];
     }

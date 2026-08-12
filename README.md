@@ -1,6 +1,6 @@
 # CloudMusicAPI — 网易云音乐 API 代理服务
 
-> 基于 Anon Framework Next 的网易云音乐接口代理：35 个接口统一 envelope 响应，扫码/验证码登录，附 SwaggerUI 文档。
+> 基于 Anon Framework Next 的网易云音乐接口代理：71 个接口统一 envelope 响应，扫码/验证码登录，附 SwaggerUI 文档。
 
 ## 模块边界
 
@@ -87,6 +87,67 @@ php -S 127.0.0.1:8000 run/index.php
 | `/dj/sub` | 订阅/取消电台 | `rid`、`t` |
 | `/mv/url` | MV 播放地址 | `id`、`r`（清晰度，默认 1080） |
 | `/mv/detail` | MV 详情 | `id` |
+
+### 喜欢 · 歌词
+
+| 接口 | 说明 | 关键参数 |
+|---|---|---|
+| `/song/like/check` | 歌曲是否喜欢 | `ids`（逗号分隔） |
+| `/lyric/new` | 新版歌词（含逐字） | `id` |
+
+### 首页发现 · 榜单
+
+| 接口 | 说明 | 关键参数 |
+|---|---|---|
+| `/banner` | 首页轮播图 | `type`（0=pc 1=android 2=iphone 3=ipad） |
+| `/personalized/newsong` | 推荐新歌 | `limit`、`areaId` |
+| `/personalized/djprogram` | 推荐电台节目 | — |
+| `/personalized/mv` | 推荐 MV | — |
+| `/toplist` | 所有榜单介绍 | — |
+| `/toplist/detail` | 所有榜单内容摘要 | — |
+| `/top/song` | 新歌速递 | `type`（0=全部 7=华语 96=欧美 8=日本 16=韩国） |
+| `/top/album` | 新碟上架 | `area`（ALL/ZH/EA/KR/JP）、`limit`、`offset`、`year`、`month` |
+| `/top/artists` | 热门歌手 | `limit`、`offset` |
+| `/top/mv` | MV 排行 | `area`、`limit`、`offset` |
+| `/top/playlist` | 分类歌单 | `cat`、`order`（hot/new）、`limit`、`offset` |
+| `/search/hot` | 热门搜索 | — |
+| `/search/suggest` | 搜索建议 | `keywords` |
+
+### 相似 · 相关
+
+| 接口 | 说明 | 关键参数 |
+|---|---|---|
+| `/simi/song` | 相似歌曲 | `id`、`limit`、`offset` |
+| `/simi/playlist` | 相似歌单 | `id`、`limit`、`offset` |
+| `/simi/mv` | 相似 MV | `mvid` |
+| `/related/allvideo` | 相关视频 | `id` |
+
+### 歌手增强 · MV 增强 · 私人FM
+
+| 接口 | 说明 | 关键参数 |
+|---|---|---|
+| `/artist/songs` | 歌手全部歌曲 | `id`、`order`（hot/time）、`limit`、`offset` |
+| `/artist/top/song` | 歌手热门 50 首 | `id` |
+| `/artist/sublist` | 关注歌手列表 | `limit`、`offset` |
+| `/artist/sub` | 收藏/取消收藏歌手 | `id`、`t` |
+| `/mv/all` | 全部 MV | `area`、`type`、`order`、`limit`、`offset` |
+| `/mv/first` | 最新 MV | `area`、`limit` |
+| `/mv/sublist` | 收藏的 MV | `limit`、`offset` |
+| `/mv/sub` | 收藏/取消收藏 MV | `mvid`、`t` |
+| `/personal_fm` | 私人 FM | — |
+
+### 歌单操作 · 用户中心
+
+| 接口 | 说明 | 关键参数 |
+|---|---|---|
+| `/playlist/create` | 创建歌单 | `name`、`privacy`（0=公开 10=隐私）、`type` |
+| `/playlist/delete` | 删除歌单 | `id` |
+| `/login/status` | 登录状态 | 需登录态 |
+| `/logout` | 退出登录 | 需登录态 |
+| `/user/detail` | 用户详情 | `uid` |
+| `/user/subcount` | 收藏计数 | 需登录态 |
+| `/user/level` | 用户等级 | 需登录态 |
+| `/user/record` | 听歌排行 | `uid`、`type`（0=所有时间 1=最近一周） |
 
 ## 统一响应格式（envelope）
 

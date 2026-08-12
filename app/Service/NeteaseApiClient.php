@@ -50,7 +50,7 @@ class NeteaseApiClient
         'song_url' => ['/api/song/enhance/player/url', self::MODE_EAPI],
         'song_detail' => ['/api/v3/song/detail', self::MODE_WEAPI],
         'lyric' => ['/api/song/lyric', self::MODE_EAPI],
-        'search' => ['/api/search/get', self::MODE_EAPI],
+        'search' => ['/api/cloudsearch/pc', self::MODE_EAPI],
         'playlist_detail' => ['/api/v6/playlist/detail', self::MODE_EAPI],
         'playlist_subscribe' => ['/api/playlist/{t}', self::MODE_EAPI],
         'playlist_tracks' => ['/api/playlist/manipulate/tracks', self::MODE_EAPI],
@@ -82,6 +82,42 @@ class NeteaseApiClient
         'dj_sub' => ['/api/djradio/{t}', self::MODE_WEAPI],
         'mv_url' => ['/api/song/enhance/play/mv/url', self::MODE_WEAPI],
         'mv_detail' => ['/api/v1/mv/detail', self::MODE_WEAPI],
+        'song_like_check' => ['/api/song/like/check', self::MODE_EAPI],
+        'lyric_new' => ['/api/song/lyric/v1', self::MODE_EAPI],
+        'banner' => ['/api/v2/banner/get', self::MODE_EAPI],
+        'personalized_newsong' => ['/api/personalized/newsong', self::MODE_WEAPI],
+        'personalized_djprogram' => ['/api/personalized/djprogram', self::MODE_WEAPI],
+        'personalized_mv' => ['/api/personalized/mv', self::MODE_WEAPI],
+        'toplist' => ['/api/toplist', self::MODE_EAPI],
+        'toplist_detail' => ['/api/toplist/detail', self::MODE_WEAPI],
+        'top_song' => ['/api/v1/discovery/new/songs', self::MODE_WEAPI],
+        'top_album' => ['/api/discovery/new/albums/area', self::MODE_WEAPI],
+        'top_artists' => ['/api/artist/top', self::MODE_WEAPI],
+        'top_mv' => ['/api/mv/toplist', self::MODE_WEAPI],
+        'top_playlist' => ['/api/playlist/list', self::MODE_WEAPI],
+        'search_hot' => ['/api/search/hot', self::MODE_EAPI],
+        'search_suggest' => ['/api/search/suggest/web', self::MODE_WEAPI],
+        'simi_song' => ['/api/v1/discovery/simiSong', self::MODE_WEAPI],
+        'simi_playlist' => ['/api/discovery/simiPlaylist', self::MODE_WEAPI],
+        'simi_mv' => ['/api/discovery/simiMV', self::MODE_WEAPI],
+        'related_allvideo' => ['/api/cloudvideo/v1/allvideo/rcmd', self::MODE_WEAPI],
+        'artist_songs' => ['/api/v1/artist/songs', self::MODE_EAPI],
+        'artist_top_song' => ['/api/artist/top/song', self::MODE_WEAPI],
+        'artist_sublist' => ['/api/artist/sublist', self::MODE_WEAPI],
+        'artist_sub' => ['/api/artist/{t}', self::MODE_WEAPI],
+        'mv_all' => ['/api/mv/all', self::MODE_EAPI],
+        'mv_first' => ['/api/mv/first', self::MODE_EAPI],
+        'mv_sublist' => ['/api/cloudvideo/allvideo/sublist', self::MODE_WEAPI],
+        'mv_sub' => ['/api/mv/{t}', self::MODE_WEAPI],
+        'personal_fm' => ['/api/v1/radio/get', self::MODE_WEAPI],
+        'playlist_create' => ['/api/playlist/create', self::MODE_WEAPI],
+        'playlist_delete' => ['/api/playlist/remove', self::MODE_WEAPI],
+        'login_status' => ['/api/w/nuser/account/get', self::MODE_WEAPI],
+        'logout' => ['/api/logout', self::MODE_EAPI],
+        'user_detail' => ['/api/v1/user/detail/{uid}', self::MODE_WEAPI],
+        'user_subcount' => ['/api/subcount', self::MODE_WEAPI],
+        'user_level' => ['/api/user/level', self::MODE_WEAPI],
+        'user_record' => ['/api/v1/play/record', self::MODE_WEAPI],
     ];
 
     /**
@@ -256,12 +292,21 @@ class NeteaseApiClient
                     array_filter(explode(',', $str('ids', $str('id')))),
                 )) . ']',
             ],
-            'lyric' => ['id' => $str('id')],
+            // 缺 tv/lv/rv/kv/_nmclfl 时网易云只回基础歌词甚至空 lrc——版本号 -1 请求全版本
+            'lyric' => [
+                'id' => $str('id'),
+                'tv' => -1,
+                'lv' => -1,
+                'rv' => -1,
+                'kv' => -1,
+                '_nmclfl' => 1,
+            ],
             'search' => [
                 's' => $str('keywords', $str('s')),
                 'type' => $int('type', 1),
                 'limit' => $int('limit', 30),
                 'offset' => $int('offset', 0),
+                'total' => true,
             ],
             'playlist_detail' => ['id' => $str('id'), 'n' => 100000, 's' => $int('s', 8)],
             'playlist_subscribe' => ['id' => $str('id')],
@@ -276,7 +321,8 @@ class NeteaseApiClient
             'recommend_songs' => array_filter(['afresh' => $query['afresh'] ?? null], static fn ($v) => $v !== null),
             'login_qr_key' => ['type' => 3],
             'login_qr_check' => ['key' => $str('key'), 'type' => 3],
-            'captcha_sent' => ['phone' => $str('phone'), 'ctcode' => $str('ctcode', '86')],
+            // secrete 必填，字段名是 cellphone 不是 phone，对齐 Node captcha_sent.js
+            'captcha_sent' => ['ctcode' => $str('ctcode', '86'), 'secrete' => 'music_middleuser_pclogin', 'cellphone' => $str('phone')],
             'login_cellphone' => array_filter([
                 'phone' => $str('phone'),
                 'countrycode' => $str('countrycode') ?: null,
@@ -288,15 +334,23 @@ class NeteaseApiClient
                 'uid' => $str('uid'),
                 'limit' => $int('limit', 30),
                 'offset' => $int('offset', 0),
+                'includeVideo' => true,
             ],
             'likelist' => ['uid' => $str('uid')],
-            'like' => ['trackId' => $str('id'), 'like' => $this->boolish($query['like'] ?? true)],
+            // alg/time 是红心接口必填，缺失会被网易云判定非法请求直接拒绝
+            'like' => [
+                'alg' => 'itembased',
+                'trackId' => $str('id'),
+                'like' => $this->boolish($query['like'] ?? true),
+                'time' => '3',
+            ],
             'artists', 'album' => [],
-            'artist_album' => ['limit' => $int('limit', 30), 'offset' => $int('offset', 0)],
-            'artist_mv' => ['id' => $str('id'), 'limit' => $int('limit', 40), 'offset' => $int('offset', 0)],
+            'artist_album' => ['limit' => $int('limit', 30), 'offset' => $int('offset', 0), 'total' => true],
+            // 上游字段是 artistId 不是 id，缺 total 拿不到分页总数
+            'artist_mv' => ['artistId' => $str('id'), 'limit' => $int('limit', 40), 'offset' => $int('offset', 0), 'total' => true],
             'artist_desc' => ['id' => $str('id')],
             'simi_artist' => ['artistid' => $str('id')],
-            'album_sublist' => ['limit' => $int('limit', 25), 'offset' => $int('offset', 0)],
+            'album_sublist' => ['limit' => $int('limit', 25), 'offset' => $int('offset', 0), 'total' => true],
             'album_sub' => ['id' => $str('id')],
             'dj_hot' => ['limit' => $int('limit', 30), 'offset' => $int('offset', 0)],
             'dj_recommend' => [],
@@ -308,10 +362,84 @@ class NeteaseApiClient
                 'asc' => $this->boolish($query['asc'] ?? false),
             ],
             'dj_program_detail' => ['id' => $str('id')],
-            'dj_sublist' => ['limit' => $int('limit', 30), 'offset' => $int('offset', 0)],
+            'dj_sublist' => ['limit' => $int('limit', 30), 'offset' => $int('offset', 0), 'total' => true],
             'dj_sub' => ['id' => $str('rid', $str('id'))],
             'mv_url' => ['id' => $str('id'), 'r' => $int('r', 1080)],
             'mv_detail' => ['id' => $str('id')],
+            'song_like_check' => ['trackIds' => $str('ids')],
+            'lyric_new' => [
+                'id' => $str('id'),
+                'cp' => false,
+                'tv' => 0,
+                'lv' => 0,
+                'rv' => 0,
+                'kv' => 0,
+                'yv' => 0,
+                'ytv' => 0,
+                'yrv' => 0,
+            ],
+            'banner' => ['clientType' => self::bannerClientType($query['type'] ?? 0)],
+            'personalized_newsong' => ['type' => 'recommend', 'limit' => $int('limit', 10), 'areaId' => $int('areaId', 0)],
+            'personalized_djprogram' => [],
+            'personalized_mv' => [],
+            'toplist' => [],
+            'toplist_detail' => [],
+            'top_song' => ['areaId' => $int('type', 0), 'total' => true],
+            'top_album' => [
+                'area' => $str('area', 'ALL'),
+                'limit' => $int('limit', 50),
+                'offset' => $int('offset', 0),
+                'type' => $str('type', 'new'),
+                'year' => $int('year', (int) date('Y')),
+                'month' => $int('month', (int) date('n')),
+                'total' => false,
+                'rcmd' => true,
+            ],
+            'top_artists' => ['limit' => $int('limit', 50), 'offset' => $int('offset', 0), 'total' => true],
+            'top_mv' => ['area' => $str('area', ''), 'limit' => $int('limit', 30), 'offset' => $int('offset', 0), 'total' => true],
+            'top_playlist' => ['cat' => $str('cat', '全部'), 'order' => $str('order', 'hot'), 'limit' => $int('limit', 50), 'offset' => $int('offset', 0), 'total' => true],
+            'search_hot' => ['type' => 1111],
+            'search_suggest' => ['s' => $str('keywords', $str('s'))],
+            'simi_song' => ['songid' => $str('id'), 'limit' => $int('limit', 50), 'offset' => $int('offset', 0)],
+            'simi_playlist' => ['songid' => $str('id'), 'limit' => $int('limit', 50), 'offset' => $int('offset', 0)],
+            'simi_mv' => ['mvid' => $str('mvid', $str('id'))],
+            'related_allvideo' => ['id' => $str('id'), 'type' => ctype_digit((string) ($query['id'] ?? '')) ? 0 : 1],
+            'artist_songs' => [
+                'id' => $str('id'),
+                'private_cloud' => 'true',
+                'work_type' => 1,
+                'order' => $str('order', 'hot'),
+                'offset' => $int('offset', 0),
+                'limit' => $int('limit', 100),
+            ],
+            'artist_top_song' => ['id' => $str('id')],
+            'artist_sublist' => ['limit' => $int('limit', 25), 'offset' => $int('offset', 0), 'total' => true],
+            'artist_sub' => ['artistId' => $str('id'), 'artistIds' => '[' . $str('id') . ']'],
+            'mv_all' => [
+                'tags' => json_encode(
+                    [
+                        '地区' => $str('area', '全部'),
+                        '类型' => $str('type', '全部'),
+                        '排序' => $str('order', '上升最快'),
+                    ],
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                ),
+                'offset' => $int('offset', 0),
+                'total' => 'true',
+                'limit' => $int('limit', 30),
+            ],
+            'mv_first' => ['area' => $str('area', ''), 'limit' => $int('limit', 30), 'total' => true],
+            'mv_sublist' => ['limit' => $int('limit', 25), 'offset' => $int('offset', 0), 'total' => true],
+            'mv_sub' => ['mvId' => $str('mvid', $str('id')), 'mvIds' => '["' . $str('mvid', $str('id')) . '"]'],
+            'personal_fm' => [],
+            'playlist_create' => ['name' => $str('name'), 'privacy' => $str('privacy', '0'), 'type' => $str('type', 'NORMAL')],
+            'playlist_delete' => ['ids' => '[' . $str('id') . ']'],
+            'login_status' => [],
+            'logout' => [],
+            'user_detail' => [],
+            'user_subcount' => [],
+            'user_level' => [],
+            'user_record' => ['uid' => $str('uid'), 'type' => $int('type', 0)],
             default => [],
         };
     }
@@ -320,9 +448,10 @@ class NeteaseApiClient
     {
         $id = trim((string) ($query['id'] ?? ''));
         $rid = trim((string) ($query['rid'] ?? $query['id'] ?? ''));
+        $uid = trim((string) ($query['uid'] ?? ''));
         $t = ($query['t'] ?? null) == 1 ? 'sub' : 'unsub';
 
-        return str_replace(['{id}', '{rid}', '{t}'], [$id, $rid, $t], $template);
+        return str_replace(['{id}', '{rid}', '{uid}', '{t}'], [$id, $rid, $uid, $t], $template);
     }
 
     /**
@@ -406,6 +535,19 @@ class NeteaseApiClient
         }
 
         return (bool) $value;
+    }
+
+    /**
+     * banner 的 clientType：0 pc / 1 android / 2 iphone / 3 ipad，缺省 pc。
+     */
+    private static function bannerClientType(mixed $type): string
+    {
+        return match ((int) $type) {
+            1 => 'android',
+            2 => 'iphone',
+            3 => 'ipad',
+            default => 'pc',
+        };
     }
 
     /**
