@@ -118,9 +118,10 @@ class NeteaseApiClient
 
         if ($name === 'song_url') {
             $response = $this->sortSongUrl($response, $query);
+            $response = $this->forceHttpsMedia($response);
         }
 
-        // 登录类接口把上游 set-cookie 合并进 body.cookie（前端 auth-cookie 依赖它持久化凭证）
+        // 登录类接口把上游 set-cookie 合并进 body.cookie，前端 auth-cookie 依赖它持久化凭证
         if (in_array($name, ['login_qr_key', 'login_qr_check', 'login_cellphone'], true)
             && $response['cookies'] !== []
         ) {
@@ -249,7 +250,7 @@ class NeteaseApiClient
                 'br' => $int('br', 999000),
             ],
             'song_detail' => [
-                // 网易云要求 c 为 id 数组的 JSON 串（[{"id":1},{"id":2}]），与 CloudMusicAPI 一致
+                // 网易云要求 c 为 id 数组的 JSON 串，与 CloudMusicAPI Node 版一致
                 'c' => '[' . implode(',', array_map(
                     static fn ($id) => '{"id":' . (int) $id . '}',
                     array_filter(explode(',', $str('ids', $str('id')))),
@@ -431,6 +432,56 @@ class NeteaseApiClient
         $response['body']['data'] = $data;
 
         return $response;
+    }
+
+    /**
+     * 播放地址强制 HTTPS：网易云 CDN 常下发 http 地址，HTTPS 页面与移动端
+     * WebView 会按 Mixed Content 拒绝。同地址的 HTTPS 端点可用，改写协议后
+     * 所有端拿到的就是 https，无需各自处理。
+     *
+     * @param array{status: int, body: array, cookies: string[]} $response
+     * @return array{status: int, body: array, cookies: string[]}
+     */
+    private function forceHttpsMedia(array $response): array
+    {
+        $data = $response['body']['data'] ?? [];
+        if (!is_array($data)) {
+            return $response;
+        }
+
+        foreach ($data as &$item) {
+            if (!is_array($item) || !isset($item['url']) || !is_string($item['url'])) {
+                continue;
+            }
+            $item['url'] = $this->upgradeToHttps($item['url']);
+        }
+        unset($item);
+        $response['body']['data'] = $data;
+
+        return $response;
+    }
+
+    /**
+     * 仅升级网易云媒体域 126.net / 163.com 的 http 地址，第三方域名保持原样。
+     */
+    private function upgradeToHttps(string $url): string
+    {
+        if (!str_starts_with($url, 'http://')) {
+            return $url;
+        }
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return $url;
+        }
+        $isNeteaseDomain = $host === '126.net'
+            || str_ends_with($host, '.126.net')
+            || $host === '163.com'
+            || str_ends_with($host, '.163.com');
+        if (!$isNeteaseDomain) {
+            return $url;
+        }
+
+        return 'https://' . substr($url, strlen('http://'));
     }
 
     /**
