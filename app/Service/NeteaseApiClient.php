@@ -24,8 +24,8 @@ class NeteaseApiClient
         '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 NeteaseMusicDesktop/3.1.29.205117';
 
     /** 
-     * eapi 请求体里的设备头
-     * deviceId 动态生成——固定 id 多人共用会被网易云按设备维度风控，见 eapiHeader() 
+     * eapi 请求体里的设备头静态字段
+     * deviceId/buildver/__csrf/requestId 动态生成（见 eapiHeader），固定值会被风控
      */
     private const EAPI_HEADER = [
         'osver' => 'Microsoft-Windows-10-Professional-build-19045-64bit',
@@ -33,11 +33,8 @@ class NeteaseApiClient
         'appver' => '3.1.17.204416',
         'versioncode' => '140',
         'mobilename' => '',
-        'buildver' => '1700000000',
         'resolution' => '1920x1080',
-        '__csrf' => '',
         'channel' => 'netease',
-        'requestId' => '',
     ];
 
     /**
@@ -60,7 +57,7 @@ class NeteaseApiClient
         'login_qr_create' => ['', self::MODE_LOCAL],
         'login_qr_check' => ['/api/login/qrcode/client/login', self::MODE_EAPI],
         'captcha_sent' => ['/api/sms/captcha/sent', self::MODE_WEAPI],
-        'login_cellphone' => ['/api/login/cellphone', self::MODE_WEAPI],
+        'login_cellphone' => ['/api/w/login/cellphone', self::MODE_WEAPI],
         'user_account' => ['/api/nuser/account/get', self::MODE_WEAPI],
         'user_playlist' => ['/api/user/playlist', self::MODE_WEAPI],
         'likelist' => ['/api/song/like/get', self::MODE_EAPI],
@@ -173,7 +170,8 @@ class NeteaseApiClient
      */
     private function requestWeapi(string $uri, array $data, string $cookie): array
     {
-        $data['csrf_token'] = $this->csrfToken($cookie);
+        $jar = $this->processCookie($cookie, $uri);
+        $data['csrf_token'] = $jar['__csrf'] ?? '';
         $encrypted = Crypto::weapi($data);
         $url = self::DOMAIN . '/weapi/' . substr($uri, 5);
 
@@ -181,10 +179,8 @@ class NeteaseApiClient
             'Content-Type' => 'application/x-www-form-urlencoded',
             'Referer' => self::DOMAIN,
             'User-Agent' => self::UA_PC,
+            'Cookie' => $this->cookieHeader($jar),
         ];
-        if ($cookie !== '') {
-            $headers['Cookie'] = $cookie;
-        }
 
         return $this->post($url, http_build_query($encrypted), $headers);
     }
@@ -196,17 +192,16 @@ class NeteaseApiClient
      */
     private function requestEapi(string $uri, array $data, string $cookie): array
     {
-        $data['header'] = $this->eapiHeader($cookie);
+        $jar = $this->processCookie($cookie, $uri);
+        $data['header'] = $this->eapiHeader($jar);
         $encrypted = Crypto::eapi($uri, $data);
         $url = self::EAPI_DOMAIN . '/eapi/' . substr($uri, 5);
 
         $headers = [
             'Content-Type' => 'application/x-www-form-urlencoded',
             'User-Agent' => self::UA_PC,
+            'Cookie' => $this->eapiHeaderCookie($data['header']),
         ];
-        if ($cookie !== '') {
-            $headers['Cookie'] = $cookie;
-        }
 
         return $this->post($url, http_build_query($encrypted), $headers);
     }
@@ -323,12 +318,7 @@ class NeteaseApiClient
             'login_qr_check' => ['key' => $str('key'), 'type' => 3],
             // secrete 必填，字段名是 cellphone 不是 phone，对齐 Node captcha_sent.js
             'captcha_sent' => ['ctcode' => $str('ctcode', '86'), 'secrete' => 'music_middleuser_pclogin', 'cellphone' => $str('phone')],
-            'login_cellphone' => array_filter([
-                'phone' => $str('phone'),
-                'countrycode' => $str('countrycode') ?: null,
-                'captcha' => $str('captcha') ?: null,
-                'password' => $str('password') ?: null,
-            ], static fn ($v) => $v !== null),
+            'login_cellphone' => $this->loginCellphoneData($query),
             'user_account' => [],
             'user_playlist' => [
                 'uid' => $str('uid'),
@@ -455,6 +445,43 @@ class NeteaseApiClient
     }
 
     /**
+     * 手机号登录请求体，对齐 Node login_cellphone.js。
+     * type/https/remember/secureCaptcha 是风控关键字段，缺任一会被网易云判定异常请求；
+     * countrycode 兼容前端 auth-phone.ts 只传 ctcode 的情况，captcha 优先、否则走 md5(password)。
+     *
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    private function loginCellphoneData(array $query): array
+    {
+        $str = static fn (string $key, string $default = '') => trim((string) ($query[$key] ?? $default));
+
+        $countrycode = $str('countrycode');
+        if ($countrycode === '') {
+            $countrycode = $str('ctcode', '86');
+        }
+
+        $data = [
+            'type' => '1',
+            'https' => 'true',
+            'phone' => $str('phone'),
+            'countrycode' => $countrycode,
+            'remember' => 'true',
+            'secureCaptcha' => $str('sca', ''),
+        ];
+
+        $captcha = $str('captcha');
+        if ($captcha !== '') {
+            $data['captcha'] = $captcha;
+        } else {
+            $md5Password = $str('md5_password');
+            $data['password'] = $md5Password !== '' ? $md5Password : md5($str('password'));
+        }
+
+        return $data;
+    }
+
+    /**
      * @param array<string, mixed> $query
      */
     private function cookieString(array $query): string
@@ -462,13 +489,89 @@ class NeteaseApiClient
         return trim((string) ($query['cookie'] ?? ''));
     }
 
-    private function csrfToken(string $cookie): string
+    private function cookieToRecord(string $cookie): array
     {
-        if (preg_match('/(?:^|;\s*)__csrf=([^;]+)/', $cookie, $m)) {
-            return $m[1];
+        $out = [];
+        if ($cookie === '') {
+            return $out;
+        }
+        foreach (explode(';', $cookie) as $part) {
+            $idx = strpos($part, '=');
+            if ($idx === false || $idx <= 0) {
+                continue;
+            }
+            $key = trim(substr($part, 0, $idx));
+            $value = trim(substr($part, $idx + 1));
+            if ($key !== '') {
+                $out[$key] = $value;
+            }
         }
 
-        return '';
+        return $out;
+    }
+
+    /**
+     * 补全设备指纹 cookie，对齐 Node processCookieObject：
+     * 网易云风控校验 _ntes_nuid/NMTID/WNMCID/osver/appver 等设备字段，
+     * 只透传前端的 deviceId + MUSIC_U 会被判环境风险（-460）。
+     * 登录接口不加 NMTID，其余接口补上。
+     */
+    private function processCookie(string $cookie, string $uri): array
+    {
+        $jar = $this->cookieToRecord($cookie);
+        $nuid = bin2hex(random_bytes(16));
+
+        $jar['__remember_me'] = $jar['__remember_me'] ?? 'true';
+        $jar['ntes_kaola_ad'] = $jar['ntes_kaola_ad'] ?? '1';
+        $jar['_ntes_nuid'] = $jar['_ntes_nuid'] ?? $nuid;
+        $jar['_ntes_nnid'] = $jar['_ntes_nnid'] ?? ($jar['_ntes_nuid'] . ',' . (string) (int) (microtime(true) * 1000));
+        $jar['WNMCID'] = $jar['WNMCID'] ?? self::randomWnmcid();
+        $jar['WEVNSM'] = $jar['WEVNSM'] ?? '1.0.0';
+        $jar['osver'] = $jar['osver'] ?? 'Microsoft-Windows-10-Professional-build-19045-64bit';
+        $jar['os'] = $jar['os'] ?? 'pc';
+        $jar['appver'] = $jar['appver'] ?? '3.1.17.204416';
+        $jar['channel'] = $jar['channel'] ?? 'netease';
+        $jar['deviceId'] = $this->deviceId($jar);
+
+        if (!str_contains($uri, 'login') && !isset($jar['NMTID'])) {
+            $jar['NMTID'] = bin2hex(random_bytes(16));
+        }
+
+        return $jar;
+    }
+
+    private function cookieHeader(array $jar): string
+    {
+        $parts = [];
+        foreach ($jar as $key => $value) {
+            $parts[] = $key . '=' . $value;
+        }
+
+        return implode('; ', $parts);
+    }
+
+    /**
+     * eapi 的 Cookie 头复用 header 同字段（URL 编码），对齐 Node createHeaderCookie。
+     */
+    private function eapiHeaderCookie(array $header): string
+    {
+        $parts = [];
+        foreach ($header as $key => $value) {
+            $parts[] = rawurlencode($key) . '=' . rawurlencode((string) $value);
+        }
+
+        return implode('; ', $parts);
+    }
+
+    private static function randomWnmcid(): string
+    {
+        $chars = 'abcdefghijklmnopqrstuvwxyz';
+        $s = '';
+        for ($i = 0; $i < 6; $i++) {
+            $s .= $chars[random_int(0, 25)];
+        }
+
+        return $s . '.' . (string) (int) (microtime(true) * 1000) . '.01.0';
     }
 
     /**
@@ -476,13 +579,16 @@ class NeteaseApiClient
      *
      * @return array<string, string>
      */
-    private function eapiHeader(string $cookie): array
+    private function eapiHeader(array $jar): array
     {
         $header = self::EAPI_HEADER;
-        $header['deviceId'] = $this->deviceId($cookie);
+        $header['deviceId'] = $jar['deviceId'];
+        $header['buildver'] = substr((string) time(), 0, 10);
+        $header['__csrf'] = $jar['__csrf'] ?? '';
+        $header['requestId'] = (string) (int) (microtime(true) * 1000) . '_' . str_pad((string) random_int(0, 999), 4, '0', STR_PAD_LEFT);
         foreach (['MUSIC_U', 'MUSIC_A'] as $key) {
-            if (preg_match('/(?:^|;\s*)' . $key . '=([^;]+)/', $cookie, $m)) {
-                $header[$key] = $m[1];
+            if (($jar[$key] ?? '') !== '') {
+                $header[$key] = $jar[$key];
             }
         }
 
@@ -490,39 +596,32 @@ class NeteaseApiClient
     }
 
     /**
-     * 登录设备标识：cookie 里 deviceId 优先
-     * 前端持久化，保证扫码登录与后续 请求同一设备，登录态才绑定，否则用临时文件缓存随机值兜底
-     * 固定 deviceId 被多人共用会触发网易云设备维度风控
+     * 登录设备标识：cookie 里合法 deviceId（52 位大写 hex）优先，前端持久化保证
+     * 扫码登录与后续请求同一设备，登录态才绑定；否则用临时文件缓存兜底。
+     * UUID 等旧格式会被网易云判设备异常，强制替换。
      */
-    private function deviceId(string $cookie): string
+    private function deviceId(array $jar): string
     {
-        if (preg_match('/(?:^|;\s*)deviceId=([^;]+)/', $cookie, $m)) {
-            $id = trim($m[1]);
-            if ($id !== '') {
-                return $id;
-            }
+        $id = trim((string) ($jar['deviceId'] ?? ''));
+        if (preg_match('/^[0-9A-F]{52}$/i', $id)) {
+            return strtoupper($id);
         }
 
         $file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'musicstorm-device-id';
         $cached = @file_get_contents($file);
-        if (is_string($cached) && strlen($cached) === 36) {
+        if (is_string($cached) && preg_match('/^[0-9A-F]{52}$/', $cached)) {
             return $cached;
         }
 
-        $id = self::randomUuid();
+        $id = self::generateDeviceId();
         @file_put_contents($file, $id);
 
         return $id;
     }
 
-    private static function randomUuid(): string
+    private static function generateDeviceId(): string
     {
-        $data = random_bytes(16);
-        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
-        $hex = bin2hex($data);
-
-        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($hex, 4));
+        return strtoupper(bin2hex(random_bytes(26)));
     }
 
     /**
