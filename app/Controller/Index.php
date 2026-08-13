@@ -33,7 +33,7 @@ class Index
             ->withHeader('Content-Type', 'text/html; charset=utf-8');
     }
 
-    /** OpenAPI 3.0 规范：71 个接口的路径与参数（供 SwaggerUI / 客户端生成） */
+    /** OpenAPI 3.0 规范：81 个接口的路径与参数（供 SwaggerUI / 客户端生成） */
     public function openapiJson(): Response
     {
         return Response::json($this->openapiSpec(), 200);
@@ -111,7 +111,7 @@ class Index
         </header>
 
         <main class="pb-20 pt-8 sm:pt-12">
-            <div class="mb-4 font-mono text-[0.74rem] uppercase tracking-[0.22em] text-accent">Base URL: {host}/api · 71 endpoints</div>
+            <div class="mb-4 font-mono text-[0.74rem] uppercase tracking-[0.22em] text-accent">Base URL: {host}/api · 81 endpoints</div>
             <h1 class="max-w-4xl font-display text-5xl font-semibold leading-none tracking-[-0.08em] text-white sm:text-6xl lg:text-7xl">
                 网易云音乐 API
             </h1>
@@ -278,7 +278,7 @@ HTML;
 HTML;
     }
 
-    /** 71 个接口的 OpenAPI 3.0 描述；参数与 NeteaseApiClient::buildData 对齐 */
+    /** 81 个接口的 OpenAPI 3.0 描述；参数与 NeteaseApiClient::buildData 对齐 */
     private function openapiSpec(): array
     {
         $int = static fn (string $name, string $desc, int $default = 0): array => [
@@ -380,6 +380,16 @@ HTML;
                 '/user/subcount' => $get('收藏计数'),
                 '/user/level' => $get('用户等级'),
                 '/user/record' => $get('听歌排行', [$str('uid', '用户 id', ''), $int('type', '0=所有时间 1=最近一周', 0)]),
+                '/playlist/update/name' => $get('歌单改名', [$str('id', '歌单 id', ''), $str('name', '新歌单名', '')]),
+                '/playlist/desc/update' => $get('歌单改介绍', [$str('id', '歌单 id', ''), $str('desc', '歌单介绍', '')]),
+                '/playlist/highquality/tags' => $get('精品歌单标签'),
+                '/album/new' => $get('新碟上架', [$str('area', '地区 ALL/ZH/EA/KR/JP', 'ALL'), $int('limit', '数量', 30), $int('offset', '偏移', 0)]),
+                '/fm_trash' => $get('私人 FM 垃圾桶', [$str('id', '歌曲 id', '')]),
+                '/playmode/intelligence/list' => $get('心动模式 / 智能播放', [$str('id', '起始歌曲 id', ''), $str('pid', '歌单 id', ''), $int('count', '数量', 1)]),
+                '/user/cloud' => $get('云盘歌曲列表', [$int('limit', '数量', 30), $int('offset', '偏移', 0)]),
+                '/user/cloud/del' => $get('删除云盘歌曲', [$str('id', '歌曲 id', '')]),
+                '/daily_signin' => $get('每日签到', [$int('type', '0=安卓 1=网页', 0)]),
+                '/login' => $get('邮箱登录', [$str('email', '邮箱', ''), $str('password', '密码', '')]),
             ],
         ];
     }

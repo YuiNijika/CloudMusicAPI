@@ -416,6 +416,12 @@ class NeteaseProxy
         return $this->respond('playlist_update_name', $request);
     }
 
+    /** 歌单改介绍 */
+    public function playlistDescUpdate(Request $request): Response
+    {
+        return $this->respond('playlist_desc_update', $request);
+    }
+
     /** 登录状态 */
     public function loginStatus(Request $request): Response
     {
@@ -450,6 +456,54 @@ class NeteaseProxy
     public function userRecord(Request $request): Response
     {
         return $this->respond('user_record', $request);
+    }
+
+    /** 新碟上架 */
+    public function albumNew(Request $request): Response
+    {
+        return $this->respond('album_new', $request);
+    }
+
+    /** 私人 FM 垃圾桶 */
+    public function fmTrash(Request $request): Response
+    {
+        return $this->respond('fm_trash', $request);
+    }
+
+    /** 心动模式 / 智能播放 */
+    public function playmodeIntelligenceList(Request $request): Response
+    {
+        return $this->respond('playmode_intelligence_list', $request);
+    }
+
+    /** 云盘列表 */
+    public function userCloud(Request $request): Response
+    {
+        return $this->respond('user_cloud', $request);
+    }
+
+    /** 删除云盘歌曲 */
+    public function userCloudDel(Request $request): Response
+    {
+        return $this->respond('user_cloud_del', $request);
+    }
+
+    /** 精品歌单标签 */
+    public function playlistHighqualityTags(Request $request): Response
+    {
+        return $this->respond('playlist_highquality_tags', $request);
+    }
+
+    /** 每日签到 */
+    public function dailySignin(Request $request): Response
+    {
+        return $this->respond('daily_signin', $request);
+    }
+
+    /** 邮箱登录 */
+    public function login(Request $request): Response
+    {
+        return $this->respond('login', $request);
     }
 
     private function respond(string $name, Request $request): Response

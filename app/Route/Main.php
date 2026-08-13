@@ -147,6 +147,8 @@ Route::group([
     Route::any('/playlist/delete', [NeteaseProxy::class, 'playlistDelete']);
     // 歌单改名
     Route::any('/playlist/update/name', [NeteaseProxy::class, 'playlistUpdateName']);
+    // 歌单改介绍
+    Route::any('/playlist/desc/update', [NeteaseProxy::class, 'playlistDescUpdate']);
     // 登录状态
     Route::any('/login/status', [NeteaseProxy::class, 'loginStatus']);
     // 退出登录
@@ -159,6 +161,22 @@ Route::group([
     Route::any('/user/level', [NeteaseProxy::class, 'userLevel']);
     // 听歌排行
     Route::any('/user/record', [NeteaseProxy::class, 'userRecord']);
+    // 新碟上架
+    Route::any('/album/new', [NeteaseProxy::class, 'albumNew']);
+    // 私人 FM 垃圾桶
+    Route::any('/fm_trash', [NeteaseProxy::class, 'fmTrash']);
+    // 心动模式 / 智能播放
+    Route::any('/playmode/intelligence/list', [NeteaseProxy::class, 'playmodeIntelligenceList']);
+    // 云盘列表
+    Route::any('/user/cloud', [NeteaseProxy::class, 'userCloud']);
+    // 删除云盘歌曲
+    Route::any('/user/cloud/del', [NeteaseProxy::class, 'userCloudDel']);
+    // 精品歌单标签
+    Route::any('/playlist/highquality/tags', [NeteaseProxy::class, 'playlistHighqualityTags']);
+    // 每日签到
+    Route::any('/daily_signin', [NeteaseProxy::class, 'dailySignin']);
+    // 邮箱登录
+    Route::any('/login', [NeteaseProxy::class, 'login']);
 });
 
 Route::get('/', [Index::class, 'index'])

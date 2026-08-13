@@ -118,12 +118,21 @@ class NeteaseApiClient
         'playlist_create' => ['/api/playlist/create', self::MODE_WEAPI],
         'playlist_delete' => ['/api/playlist/remove', self::MODE_WEAPI],
         'playlist_update_name' => ['/api/playlist/update/name', self::MODE_WEAPI],
+        'playlist_desc_update' => ['/api/playlist/desc/update', self::MODE_WEAPI],
         'login_status' => ['/api/w/nuser/account/get', self::MODE_WEAPI],
         'logout' => ['/api/logout', self::MODE_EAPI],
         'user_detail' => ['/api/v1/user/detail/{uid}', self::MODE_WEAPI],
         'user_subcount' => ['/api/subcount', self::MODE_WEAPI],
         'user_level' => ['/api/user/level', self::MODE_WEAPI],
         'user_record' => ['/api/v1/play/record', self::MODE_WEAPI],
+        'album_new' => ['/api/album/new', self::MODE_WEAPI],
+        'fm_trash' => ['/api/radio/trash/add', self::MODE_WEAPI],
+        'playmode_intelligence_list' => ['/api/playmode/intelligence/list', self::MODE_EAPI],
+        'user_cloud' => ['/api/v1/cloud/get', self::MODE_WEAPI],
+        'user_cloud_del' => ['/api/cloud/del', self::MODE_WEAPI],
+        'playlist_highquality_tags' => ['/api/playlist/highquality/tags', self::MODE_WEAPI],
+        'daily_signin' => ['/api/point/dailyTask', self::MODE_EAPI],
+        'login' => ['/api/w/login', self::MODE_EAPI],
     ];
 
     /**
@@ -164,7 +173,7 @@ class NeteaseApiClient
         }
 
         // 登录类接口把上游 set-cookie 合并进 body.cookie，前端 auth-cookie 依赖它持久化凭证
-        if (in_array($name, ['login_qr_key', 'login_qr_check', 'login_cellphone', 'user_account'], true)
+        if (in_array($name, ['login_qr_key', 'login_qr_check', 'login_cellphone', 'login', 'user_account'], true)
             && $response['cookies'] !== []
         ) {
             $response['body']['cookie'] = implode(';', $response['cookies']);
@@ -438,12 +447,27 @@ class NeteaseApiClient
             'playlist_create' => ['name' => $str('name'), 'privacy' => $str('privacy', '0'), 'type' => $str('type', 'NORMAL')],
             'playlist_delete' => ['ids' => '[' . $str('id') . ']'],
             'playlist_update_name' => ['id' => $str('id'), 'name' => $str('name')],
+            'playlist_desc_update' => ['id' => $str('id'), 'desc' => $str('desc')],
             'login_status' => [],
             'logout' => [],
             'user_detail' => [],
             'user_subcount' => [],
             'user_level' => [],
             'user_record' => ['uid' => $str('uid'), 'type' => $int('type', 0)],
+            'album_new' => ['limit' => $int('limit', 30), 'offset' => $int('offset', 0), 'total' => true, 'area' => $str('area', 'ALL')],
+            'fm_trash' => ['songId' => $str('id'), 'alg' => 'RT', 'time' => $int('time', 25)],
+            'playmode_intelligence_list' => ['songId' => $str('id'), 'type' => 'fromPlayOne', 'playlistId' => $str('pid'), 'startMusicId' => $str('sid', $str('id')), 'count' => $int('count', 1)],
+            'user_cloud' => ['limit' => $int('limit', 30), 'offset' => $int('offset', 0)],
+            'user_cloud_del' => ['songIds' => [$str('id')]],
+            'playlist_highquality_tags' => [],
+            'daily_signin' => ['type' => $int('type', 0)],
+            'login' => [
+                'type' => '0',
+                'https' => 'true',
+                'username' => $str('email'),
+                'password' => $str('md5_password') !== '' ? $str('md5_password') : md5($str('password')),
+                'rememberLogin' => 'true',
+            ],
             default => [],
         };
     }
@@ -561,7 +585,8 @@ class NeteaseApiClient
     {
         $parts = [];
         foreach ($jar as $key => $value) {
-            $parts[] = $key . '=' . $value;
+            // 对齐 Node cookieObjToString：key/value 都 rawurlencode
+            $parts[] = rawurlencode((string) $key) . '=' . rawurlencode((string) $value);
         }
 
         return implode('; ', $parts);
