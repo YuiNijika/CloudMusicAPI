@@ -23,6 +23,11 @@ class NeteaseApiClient
         'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 ' .
         '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 NeteaseMusicDesktop/3.1.29.205117';
 
+    // weapi 是网页端接口，对齐 Node 版 chooseUserAgent('weapi')：浏览器 UA
+    private const UA_WEB =
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' .
+        '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0';
+
     /** 
      * eapi 请求体里的设备头静态字段
      * deviceId/buildver/__csrf/requestId 动态生成（见 eapiHeader），固定值会被风控
@@ -36,6 +41,9 @@ class NeteaseApiClient
         'resolution' => '1920x1080',
         'channel' => 'netease',
     ];
+
+    /** 收藏歌单反作弊 token，对齐 Node config.json 的 APP_CONF.checkToken */
+    private const CHECK_TOKEN = '9ca17ae2e6ffcda170e2e6ee8af14fbabdb988f225b3868eb2c15a879b9a83d274a790ac8ff54a97b889d5d42af0feaec3b92af58cff99c470a7eafd88f75e839a9ea7c14e909da883e83fb692a3abdb6b92adee9e';
 
     /**
      * 接口表：route 名 => [上游 API 路径, 加密模式]。
@@ -109,6 +117,7 @@ class NeteaseApiClient
         'personal_fm' => ['/api/v1/radio/get', self::MODE_WEAPI],
         'playlist_create' => ['/api/playlist/create', self::MODE_WEAPI],
         'playlist_delete' => ['/api/playlist/remove', self::MODE_WEAPI],
+        'playlist_update_name' => ['/api/playlist/update/name', self::MODE_WEAPI],
         'login_status' => ['/api/w/nuser/account/get', self::MODE_WEAPI],
         'logout' => ['/api/logout', self::MODE_EAPI],
         'user_detail' => ['/api/v1/user/detail/{uid}', self::MODE_WEAPI],
@@ -178,7 +187,7 @@ class NeteaseApiClient
         $headers = [
             'Content-Type' => 'application/x-www-form-urlencoded',
             'Referer' => self::DOMAIN,
-            'User-Agent' => self::UA_PC,
+            'User-Agent' => self::UA_WEB,
             'Cookie' => $this->cookieHeader($jar),
         ];
 
@@ -304,7 +313,11 @@ class NeteaseApiClient
                 'total' => true,
             ],
             'playlist_detail' => ['id' => $str('id'), 'n' => 100000, 's' => $int('s', 8)],
-            'playlist_subscribe' => ['id' => $str('id')],
+            // 收藏（t=1）带反作弊 token，对齐 Node playlist_subscribe.js
+            'playlist_subscribe' => array_filter([
+                'id' => $str('id'),
+                'checkToken' => ($query['t'] ?? null) == 1 ? self::CHECK_TOKEN : null,
+            ], static fn ($v) => $v !== null),
             'playlist_tracks' => [
                 'op' => $str('op', 'add'),
                 'pid' => $str('pid'),
@@ -424,6 +437,7 @@ class NeteaseApiClient
             'personal_fm' => [],
             'playlist_create' => ['name' => $str('name'), 'privacy' => $str('privacy', '0'), 'type' => $str('type', 'NORMAL')],
             'playlist_delete' => ['ids' => '[' . $str('id') . ']'],
+            'playlist_update_name' => ['id' => $str('id'), 'name' => $str('name')],
             'login_status' => [],
             'logout' => [],
             'user_detail' => [],
@@ -439,7 +453,10 @@ class NeteaseApiClient
         $id = trim((string) ($query['id'] ?? ''));
         $rid = trim((string) ($query['rid'] ?? $query['id'] ?? ''));
         $uid = trim((string) ($query['uid'] ?? ''));
-        $t = ($query['t'] ?? null) == 1 ? 'sub' : 'unsub';
+        // playlist 的 {t} 是 subscribe/unsubscribe，其余 sub 接口是 sub/unsub
+        $t = str_contains($template, '/playlist/')
+            ? (($query['t'] ?? null) == 1 ? 'subscribe' : 'unsubscribe')
+            : (($query['t'] ?? null) == 1 ? 'sub' : 'unsub');
 
         return str_replace(['{id}', '{rid}', '{uid}', '{t}'], [$id, $rid, $uid, $t], $template);
     }

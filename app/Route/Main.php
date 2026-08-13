@@ -145,6 +145,8 @@ Route::group([
     Route::any('/playlist/create', [NeteaseProxy::class, 'playlistCreate']);
     // 删除歌单
     Route::any('/playlist/delete', [NeteaseProxy::class, 'playlistDelete']);
+    // 歌单改名
+    Route::any('/playlist/update/name', [NeteaseProxy::class, 'playlistUpdateName']);
     // 登录状态
     Route::any('/login/status', [NeteaseProxy::class, 'loginStatus']);
     // 退出登录

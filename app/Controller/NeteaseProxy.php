@@ -410,6 +410,12 @@ class NeteaseProxy
         return $this->respond('playlist_delete', $request);
     }
 
+    /** 歌单改名 */
+    public function playlistUpdateName(Request $request): Response
+    {
+        return $this->respond('playlist_update_name', $request);
+    }
+
     /** 登录状态 */
     public function loginStatus(Request $request): Response
     {
