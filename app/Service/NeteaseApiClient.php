@@ -66,7 +66,7 @@ class NeteaseApiClient
         'login_qr_check' => ['/api/login/qrcode/client/login', self::MODE_EAPI],
         'captcha_sent' => ['/api/sms/captcha/sent', self::MODE_WEAPI],
         'login_cellphone' => ['/api/w/login/cellphone', self::MODE_WEAPI],
-        'user_account' => ['/api/nuser/account/get', self::MODE_WEAPI],
+        'user_account' => ['/api/w/nuser/account/get', self::MODE_WEAPI],
         'user_playlist' => ['/api/user/playlist', self::MODE_WEAPI],
         'likelist' => ['/api/song/like/get', self::MODE_EAPI],
         'like' => ['/api/radio/like', self::MODE_WEAPI],
@@ -164,7 +164,7 @@ class NeteaseApiClient
         }
 
         // 登录类接口把上游 set-cookie 合并进 body.cookie，前端 auth-cookie 依赖它持久化凭证
-        if (in_array($name, ['login_qr_key', 'login_qr_check', 'login_cellphone'], true)
+        if (in_array($name, ['login_qr_key', 'login_qr_check', 'login_cellphone', 'user_account'], true)
             && $response['cookies'] !== []
         ) {
             $response['body']['cookie'] = implode(';', $response['cookies']);
