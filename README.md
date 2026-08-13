@@ -1,6 +1,6 @@
 # CloudMusicAPI — 网易云音乐 API 代理服务
 
-> 基于 Anon Framework Next 的网易云音乐接口代理：71 个接口统一 envelope 响应，扫码/验证码登录，附 SwaggerUI 文档。
+> 基于 Anon Framework Next 的网易云音乐接口代理：81 个接口统一 envelope 响应，扫码/验证码登录，附 SwaggerUI 文档。
 
 ## 模块边界
 
