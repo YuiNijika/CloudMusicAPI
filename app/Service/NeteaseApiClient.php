@@ -16,6 +16,7 @@ class NeteaseApiClient
     private const EAPI_DOMAIN = 'https://interfacepc.music.163.com';
     private const MODE_WEAPI = 'weapi';
     private const MODE_EAPI = 'eapi';
+    private const MODE_API = 'api';
     private const MODE_LOCAL = 'local';
 
     // 统一 UA
@@ -54,6 +55,8 @@ class NeteaseApiClient
     private const ROUTES = [
         'song_url' => ['/api/song/enhance/player/url', self::MODE_EAPI],
         'song_detail' => ['/api/v3/song/detail', self::MODE_WEAPI],
+        'song_detail_v1' => ['/api/song/detail', self::MODE_API],
+        'comment_music' => ['/api/v1/resource/comments/R_SO_4_{id}', self::MODE_WEAPI],
         'lyric' => ['/api/song/lyric', self::MODE_EAPI],
         'search' => ['/api/cloudsearch/pc', self::MODE_EAPI],
         'playlist_detail' => ['/api/v6/playlist/detail', self::MODE_EAPI],
@@ -155,6 +158,7 @@ class NeteaseApiClient
         $response = match ($mode) {
             self::MODE_WEAPI => $this->requestWeapi($uri, $data, $cookie),
             self::MODE_EAPI => $this->requestEapi($uri, $data, $cookie),
+            self::MODE_API => $this->requestApi($uri, $data, $cookie),
             default => throw new \RuntimeException("未知加密模式: {$mode}"),
         };
 
@@ -222,6 +226,28 @@ class NeteaseApiClient
         ];
 
         return $this->post($url, http_build_query($encrypted), $headers);
+    }
+
+    /**
+     * 旧版明文接口（v1 song/detail 等）：表单 POST + 浏览器 UA，无加密。
+     * 仅 song_detail_v1 这类下架 weapi 的接口使用。
+     *
+     * @param array<string, mixed> $data
+     * @return array{status: int, body: array, cookies: string[]}
+     */
+    private function requestApi(string $uri, array $data, string $cookie): array
+    {
+        $jar = $this->processCookie($cookie, $uri);
+        $url = self::DOMAIN . $uri;
+
+        $headers = [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+            'Referer' => self::DOMAIN,
+            'User-Agent' => self::UA_WEB,
+            'Cookie' => $this->cookieHeader($jar),
+        ];
+
+        return $this->post($url, http_build_query($data), $headers);
     }
 
     /**
@@ -304,6 +330,15 @@ class NeteaseApiClient
                     static fn ($id) => '{"id":' . (int) $id . '}',
                     array_filter(explode(',', $str('ids', $str('id')))),
                 )) . ']',
+            ],
+            // v1 song/detail 才有 starredNum/playedNum，ids 是 [id] 数组串
+            'song_detail_v1' => ['ids' => '[' . $str('id') . ']'],
+            // 对齐 Node comment_music.js：rid/limit/offset/beforeTime
+            'comment_music' => [
+                'rid' => $str('id'),
+                'limit' => $int('limit', 20),
+                'offset' => $int('offset', 0),
+                'beforeTime' => $int('before', 0),
             ],
             // 缺 tv/lv/rv/kv/_nmclfl 时网易云只回基础歌词甚至空 lrc——版本号 -1 请求全版本
             'lyric' => [

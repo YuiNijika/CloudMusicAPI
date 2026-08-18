@@ -19,6 +19,10 @@ Route::group([
     Route::any('/song/url', [NeteaseProxy::class, 'songUrl']);
     // 歌曲详情
     Route::any('/song/detail', [NeteaseProxy::class, 'songDetail']);
+    // 歌曲红心量/播放量（v1）
+    Route::any('/song/detail/v1', [NeteaseProxy::class, 'songDetailV1']);
+    // 歌曲评论
+    Route::any('/comment/music', [NeteaseProxy::class, 'commentMusic']);
     // 歌词
     Route::any('/lyric', [NeteaseProxy::class, 'lyric']);
     // 搜索

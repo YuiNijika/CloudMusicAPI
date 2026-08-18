@@ -32,6 +32,18 @@ class NeteaseProxy
         return $this->respond('song_detail', $request);
     }
 
+    /** 歌曲红心量/播放量（v1） */
+    public function songDetailV1(Request $request): Response
+    {
+        return $this->respond('song_detail_v1', $request);
+    }
+
+    /** 歌曲评论 */
+    public function commentMusic(Request $request): Response
+    {
+        return $this->respond('comment_music', $request);
+    }
+
     /** 歌词 */
     public function lyric(Request $request): Response
     {
