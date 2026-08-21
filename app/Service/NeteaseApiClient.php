@@ -156,7 +156,7 @@ class NeteaseApiClient
         $uri = $this->fillUri($name, $uriTemplate, $query);
         $data = $this->buildData($name, $query);
         $cookie = $this->cookieString($query);
-        // 前端传入的 realIP：用于传递本机 IP 给上游，避免外置 API 节点 IP 漂移触发风控
+        // 外置 API 节点出口 IP 与本机不同，网易云风控会判定为设备异常
         $realIp = trim((string) ($query['realIP'] ?? ''));
 
         $response = match ($mode) {
@@ -266,8 +266,7 @@ class NeteaseApiClient
             $curlHeaders[] = "{$name}: {$value}";
         }
 
-        // 注入 realIP 头：前端传入本机 IP，用于登录风控绕过
-        // 外置 API 模式下，请求从服务器发出，IP 与本机不同会导致风控拦截
+        // 网易云风控校验 X-Real-IP，非 CN 出口或 IP 漂移会触发 -460 验证码
         if ($realIp !== '') {
             $curlHeaders[] = "X-Real-IP: {$realIp}";
             $curlHeaders[] = "X-Forwarded-For: {$realIp}";
