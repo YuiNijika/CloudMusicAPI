@@ -33,7 +33,7 @@ class Index
             ->withHeader('Content-Type', 'text/html; charset=utf-8');
     }
 
-    /** OpenAPI 3.0 规范：81 个接口的路径与参数（供 SwaggerUI / 客户端生成） */
+    /** OpenAPI 3.0 规范：84 个接口的路径与参数（供 SwaggerUI / 客户端生成） */
     public function openapiJson(): Response
     {
         return Response::json($this->openapiSpec(), 200);
@@ -111,7 +111,7 @@ class Index
         </header>
 
         <main class="pb-20 pt-8 sm:pt-12">
-            <div class="mb-4 font-mono text-[0.74rem] uppercase tracking-[0.22em] text-accent">Base URL: {host}/api · 81 endpoints</div>
+            <div class="mb-4 font-mono text-[0.74rem] uppercase tracking-[0.22em] text-accent">Base URL: {host}/api · 84 endpoints</div>
             <h1 class="max-w-4xl font-display text-5xl font-semibold leading-none tracking-[-0.08em] text-white sm:text-6xl lg:text-7xl">
                 网易云音乐 API
             </h1>
@@ -278,7 +278,7 @@ HTML;
 HTML;
     }
 
-    /** 81 个接口的 OpenAPI 3.0 描述；参数与 NeteaseApiClient::buildData 对齐 */
+    /** 84 个接口的 OpenAPI 3.0 描述；参数与 NeteaseApiClient::buildData 对齐 */
     private function openapiSpec(): array
     {
         $int = static fn (string $name, string $desc, int $default = 0): array => [
@@ -299,6 +299,15 @@ HTML;
                 ]),
             ]),
         ];
+        $post = static fn (string $summary, array $parameters = []): array => [
+            'post' => array_filter([
+                'summary' => $summary,
+                'parameters' => array_merge($parameters, [
+                    $str('cookie', '登录凭证（MUSIC_U 等，用于登录态接口）'),
+                    $str('realIP', '客户端 IP，绕过网易云 IP 风控'),
+                ]),
+            ]),
+        ];
 
         return [
             'openapi' => '3.0.3',
@@ -311,6 +320,9 @@ HTML;
             'paths' => [
                 '/song/url' => $get('获取歌曲播放地址', [$str('id', '歌曲 id，逗号分隔多个', ''), $int('br', '码率，默认 999000')]),
                 '/song/detail' => $get('获取歌曲详情', [$str('ids', '歌曲 id，逗号分隔', '')]),
+                '/song/detail/v1' => $get('歌曲红心量/播放量', [$str('id', '歌曲 id', '')]),
+                '/comment/music' => $get('获取歌曲评论', [$str('id', '歌曲 id', ''), $int('limit', '数量', 20), $int('offset', '偏移', 0), $int('before', '时间戳分页', 0)]),
+                '/comment' => $post('发布/回复/删除评论', [$str('t', '1=发布 2=回复 0=删除', '1'), $str('type', '1=歌曲 2=专辑 3=歌手 4=MV 5=电台 6=歌单', '1'), $str('id', '资源 id', ''), $str('content', '评论内容', ''), $int('commentId', '回复/删除时的目标评论 id', 0)]),
                 '/lyric' => $get('获取歌词', [$str('id', '歌曲 id', '')]),
                 '/cloudsearch' => $get('搜索', [$str('keywords', '关键词', ''), $int('type', '1=单曲 10=专辑 100=歌手 1000=歌单', 1), $int('limit', '数量', 30), $int('offset', '偏移', 0)]),
                 '/playlist/detail' => $get('获取歌单详情', [$str('id', '歌单 id', ''), $int('s', '最近收藏者数量', 8)]),

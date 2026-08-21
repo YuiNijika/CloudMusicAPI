@@ -1,6 +1,6 @@
 # CloudMusicAPI — 网易云音乐 API 代理服务
 
-> 基于 Anon Framework Next 的网易云音乐接口代理：81 个接口统一 envelope 响应，扫码/验证码登录，附 SwaggerUI 文档。
+> 基于 Anon Framework Next 的网易云音乐接口代理：84 个接口统一 envelope 响应，扫码/验证码登录，附 SwaggerUI 文档。
 
 ## 模块边界
 
@@ -39,6 +39,7 @@ php -S 127.0.0.1:8000 run/index.php
 |---|---|---|
 | `/song/url` | 歌曲播放地址 | `id`（逗号分隔）、`br`（码率，默认 999000） |
 | `/song/detail` | 歌曲详情 | `ids`（逗号分隔） |
+| `/song/detail/v1` | 歌曲红心量/播放量 | `id` |
 | `/lyric` | 歌词 | `id` |
 | `/cloudsearch` | 搜索 | `keywords`、`type`（1/10/100/1000）、`limit`、`offset` |
 | `/playlist/detail` | 歌单详情 | `id`、`s`（最近收藏者数） |
@@ -46,6 +47,13 @@ php -S 127.0.0.1:8000 run/index.php
 | `/playlist/tracks` | 歌单加/删歌曲 | `op`（add/del）、`pid`、`tracks` |
 | `/personalized` | 推荐歌单 | `limit` |
 | `/recommend/songs` | 每日推荐（需登录） | `afresh` |
+
+### 评论
+
+| 接口 | 说明 | 关键参数 |
+|---|---|---|
+| `/comment/music` | 歌曲评论列表 | `id`、`limit`、`offset`、`before`（时间戳分页） |
+| `/comment` | 发布/回复/删除评论 | `t`（1=发布 2=回复 0=删除）、`type`（资源类型）、`id`、`content`、`commentId` |
 
 ### 登录 · 用户
 
@@ -60,6 +68,7 @@ php -S 127.0.0.1:8000 run/index.php
 | `/user/playlist` | 用户歌单 | `uid`、`limit`、`offset` |
 | `/likelist` | 喜欢歌曲列表 | `uid` |
 | `/like` | 红心/取消 | `id`、`like`（1=红心 0=取消） |
+| `/login` | 邮箱登录 | `email`、`password` |
 
 ### 艺人 · 专辑
 
@@ -110,6 +119,8 @@ php -S 127.0.0.1:8000 run/index.php
 | `/top/artists` | 热门歌手 | `limit`、`offset` |
 | `/top/mv` | MV 排行 | `area`、`limit`、`offset` |
 | `/top/playlist` | 分类歌单 | `cat`、`order`（hot/new）、`limit`、`offset` |
+| `/album/new` | 新碟上架 | `area`（ALL/ZH/EA/KR/JP）、`limit`、`offset` |
+| `/playlist/highquality/tags` | 精品歌单标签 | — |
 | `/search/hot` | 热门搜索 | — |
 | `/search/suggest` | 搜索建议 | `keywords` |
 
@@ -142,12 +153,19 @@ php -S 127.0.0.1:8000 run/index.php
 |---|---|---|
 | `/playlist/create` | 创建歌单 | `name`、`privacy`（0=公开 10=隐私）、`type` |
 | `/playlist/delete` | 删除歌单 | `id` |
+| `/playlist/update/name` | 歌单改名 | `id`、`name` |
+| `/playlist/desc/update` | 歌单改介绍 | `id`、`desc` |
 | `/login/status` | 登录状态 | 需登录态 |
 | `/logout` | 退出登录 | 需登录态 |
 | `/user/detail` | 用户详情 | `uid` |
 | `/user/subcount` | 收藏计数 | 需登录态 |
 | `/user/level` | 用户等级 | 需登录态 |
 | `/user/record` | 听歌排行 | `uid`、`type`（0=所有时间 1=最近一周） |
+| `/user/cloud` | 云盘歌曲列表 | `limit`、`offset` |
+| `/user/cloud/del` | 删除云盘歌曲 | `id` |
+| `/fm_trash` | 私人 FM 垃圾桶 | `id` |
+| `/playmode/intelligence/list` | 心动模式 / 智能播放 | `id`、`pid`、`count` |
+| `/daily_signin` | 每日签到 | `type`（0=安卓 1=网页） |
 
 ## 统一响应格式（envelope）
 

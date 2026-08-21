@@ -57,6 +57,8 @@ class NeteaseApiClient
         'song_detail' => ['/api/v3/song/detail', self::MODE_WEAPI],
         'song_detail_v1' => ['/api/song/detail', self::MODE_API],
         'comment_music' => ['/api/v1/resource/comments/R_SO_4_{id}', self::MODE_WEAPI],
+        // {t} 占位由 fillUri 按动作填充 add/delete/reply
+        'comment' => ['/api/resource/comments/{t}', self::MODE_EAPI],
         'lyric' => ['/api/song/lyric', self::MODE_EAPI],
         'search' => ['/api/cloudsearch/pc', self::MODE_EAPI],
         'playlist_detail' => ['/api/v6/playlist/detail', self::MODE_EAPI],
@@ -151,13 +153,15 @@ class NeteaseApiClient
         }
 
         [$uriTemplate, $mode] = self::ROUTES[$name];
-        $uri = $this->fillUri($uriTemplate, $query);
+        $uri = $this->fillUri($name, $uriTemplate, $query);
         $data = $this->buildData($name, $query);
         $cookie = $this->cookieString($query);
+        // 前端传入的 realIP：用于传递本机 IP 给上游，避免外置 API 节点 IP 漂移触发风控
+        $realIp = trim((string) ($query['realIP'] ?? ''));
 
         $response = match ($mode) {
-            self::MODE_WEAPI => $this->requestWeapi($uri, $data, $cookie),
-            self::MODE_EAPI => $this->requestEapi($uri, $data, $cookie),
+            self::MODE_WEAPI => $this->requestWeapi($uri, $data, $cookie, $realIp),
+            self::MODE_EAPI => $this->requestEapi($uri, $data, $cookie, $realIp),
             self::MODE_API => $this->requestApi($uri, $data, $cookie),
             default => throw new \RuntimeException("未知加密模式: {$mode}"),
         };
@@ -168,7 +172,7 @@ class NeteaseApiClient
                 array_merge((array) $query['tracks'], (array) $query['tracks']),
                 JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
             );
-            $response = $this->requestEapi($uri, $data, $cookie);
+            $response = $this->requestEapi($uri, $data, $cookie, $realIp);
         }
 
         if ($name === 'song_url') {
@@ -190,7 +194,7 @@ class NeteaseApiClient
      * @param array<string, mixed> $query
      * @return array{status: int, body: array, cookies: string[]}
      */
-    private function requestWeapi(string $uri, array $data, string $cookie): array
+    private function requestWeapi(string $uri, array $data, string $cookie, string $realIp = ''): array
     {
         $jar = $this->processCookie($cookie, $uri);
         $data['csrf_token'] = $jar['__csrf'] ?? '';
@@ -204,7 +208,7 @@ class NeteaseApiClient
             'Cookie' => $this->cookieHeader($jar),
         ];
 
-        return $this->post($url, http_build_query($encrypted), $headers);
+        return $this->post($url, http_build_query($encrypted), $headers, $realIp);
     }
 
     /**
@@ -212,7 +216,7 @@ class NeteaseApiClient
      * @param array<string, mixed> $query
      * @return array{status: int, body: array, cookies: string[]}
      */
-    private function requestEapi(string $uri, array $data, string $cookie): array
+    private function requestEapi(string $uri, array $data, string $cookie, string $realIp = ''): array
     {
         $jar = $this->processCookie($cookie, $uri);
         $data['header'] = $this->eapiHeader($jar);
@@ -225,7 +229,7 @@ class NeteaseApiClient
             'Cookie' => $this->eapiHeaderCookie($data['header']),
         ];
 
-        return $this->post($url, http_build_query($encrypted), $headers);
+        return $this->post($url, http_build_query($encrypted), $headers, $realIp);
     }
 
     /**
@@ -254,12 +258,19 @@ class NeteaseApiClient
      * @param array<string, string> $headers
      * @return array{status: int, body: array, cookies: string[]}
      */
-    private function post(string $url, string $payload, array $headers): array
+    private function post(string $url, string $payload, array $headers, string $realIp = ''): array
     {
         $curl = curl_init($url);
         $curlHeaders = [];
         foreach ($headers as $name => $value) {
             $curlHeaders[] = "{$name}: {$value}";
+        }
+
+        // 注入 realIP 头：前端传入本机 IP，用于登录风控绕过
+        // 外置 API 模式下，请求从服务器发出，IP 与本机不同会导致风控拦截
+        if ($realIp !== '') {
+            $curlHeaders[] = "X-Real-IP: {$realIp}";
+            $curlHeaders[] = "X-Forwarded-For: {$realIp}";
         }
 
         curl_setopt($curl, CURLOPT_POST, true);
@@ -340,6 +351,7 @@ class NeteaseApiClient
                 'offset' => $int('offset', 0),
                 'beforeTime' => $int('before', 0),
             ],
+            'comment' => $this->commentData($query),
             // 缺 tv/lv/rv/kv/_nmclfl 时网易云只回基础歌词甚至空 lrc——版本号 -1 请求全版本
             'lyric' => [
                 'id' => $str('id'),
@@ -507,17 +519,57 @@ class NeteaseApiClient
         };
     }
 
-    private function fillUri(string $template, array $query): string
+    private function fillUri(string $name, string $template, array $query): string
     {
         $id = trim((string) ($query['id'] ?? ''));
         $rid = trim((string) ($query['rid'] ?? $query['id'] ?? ''));
         $uid = trim((string) ($query['uid'] ?? ''));
-        // playlist 的 {t} 是 subscribe/unsubscribe，其余 sub 接口是 sub/unsub
-        $t = str_contains($template, '/playlist/')
-            ? (($query['t'] ?? null) == 1 ? 'subscribe' : 'unsubscribe')
-            : (($query['t'] ?? null) == 1 ? 'sub' : 'unsub');
+        if ($name === 'comment') {
+            // comment 的 {t} 是动作：1=发布 2=回复 0=删除
+            $t = match ((int) ($query['t'] ?? 1)) {
+                2 => 'reply',
+                0 => 'delete',
+                default => 'add',
+            };
+        } else {
+            // playlist 的 {t} 是 subscribe/unsubscribe，其余 sub 接口是 sub/unsub
+            $t = str_contains($template, '/playlist/')
+                ? (($query['t'] ?? null) == 1 ? 'subscribe' : 'unsubscribe')
+                : (($query['t'] ?? null) == 1 ? 'sub' : 'unsub');
+        }
 
         return str_replace(['{id}', '{rid}', '{uid}', '{t}'], [$id, $rid, $uid, $t], $template);
+    }
+
+    /**
+     * 发布/回复/删除评论请求体，对齐 Node comment.js 的 resourceTypeMap。
+     * threadId = 资源类型前缀 + id，如歌曲 R_SO_4_347230；reply/delete 带 commentId。
+     *
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    private function commentData(array $query): array
+    {
+        $type = (int) ($query['type'] ?? 1);
+        $prefix = match ($type) {
+            2 => 'R_AL_3_',
+            3 => 'R_AR_7_',
+            4 => 'R_VI_62_',
+            5 => 'R_DJ_1_',
+            6 => 'R_PL_3_',
+            7 => 'R_MV_8_',
+            8 => 'A_EV_2_',
+            default => 'R_SO_4_',
+        };
+        $t = (int) ($query['t'] ?? 1);
+        $data = ['threadId' => $prefix . trim((string) ($query['id'] ?? ''))];
+        if ($t === 0 || $t === 2) {
+            $data['commentId'] = (int) ($query['commentId'] ?? 0);
+        }
+        if ($t === 1 || $t === 2) {
+            $data['content'] = trim((string) ($query['content'] ?? ''));
+        }
+        return $data;
     }
 
     /**

@@ -23,6 +23,8 @@ Route::group([
     Route::any('/song/detail/v1', [NeteaseProxy::class, 'songDetailV1']);
     // 歌曲评论
     Route::any('/comment/music', [NeteaseProxy::class, 'commentMusic']);
+    // 发布/回复/删除评论
+    Route::any('/comment', [NeteaseProxy::class, 'comment']);
     // 歌词
     Route::any('/lyric', [NeteaseProxy::class, 'lyric']);
     // 搜索

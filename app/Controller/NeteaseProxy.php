@@ -44,6 +44,12 @@ class NeteaseProxy
         return $this->respond('comment_music', $request);
     }
 
+    /** 发布/回复/删除评论 */
+    public function comment(Request $request): Response
+    {
+        return $this->respond('comment', $request);
+    }
+
     /** 歌词 */
     public function lyric(Request $request): Response
     {
